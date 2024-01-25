@@ -1,0 +1,2 @@
+YYYY-MM-DDTHH:MM:SS mag mag_err zpt zpt_err
+2023-03-07T20:07:54 13.67751 0.01163 24.978 0.007

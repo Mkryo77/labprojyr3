@@ -1,0 +1,15 @@
+from astropy.io import ascii
+import numpy
+
+
+input = ascii.read('stars')
+starnames = input['col1']
+nstars = len(starnames)
+
+for i in range(0,nstars):
+    data = ascii.read(starnames[i])
+    date = data['col1']
+    time = data['col2']
+    mag = data['col3']
+    err = data['col4']
+    print(date,time,mag,err)

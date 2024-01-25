@@ -1,0 +1,1 @@
+YYYY-MM-DDTHH:MM:SS mag mag_err zpt zpt_err

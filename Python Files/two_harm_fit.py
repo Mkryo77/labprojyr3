@@ -1,0 +1,123 @@
+from astropy.io import ascii
+import numpy as np
+import sys
+import matplotlib
+from matplotlib import pyplot as plt
+import scipy
+from scipy.optimize import curve_fit
+import scipy.stats
+from astropy.time import Time
+from astropy.table import Table
+
+#def single_harm(t,A0,T0,m0,phi):
+   # return A0 * np.sin((2*np.pi/T0)*t + phi) + m0
+
+def two_harm(t,A1,T0,m0,phi1,A2,phi2):
+    return A1 *np.sin((2*np.pi/T0)*t + phi1) + A2 *np.sin((5*np.pi/T0)*t + phi2) + m0
+
+input = ascii.read('stars.py')
+starnames = input['starnames']
+nstars = len(starnames)
+initial_values = ascii.read('initial_values')
+
+lines = ['']
+with open('optimised_params.txt', 'w') as f:
+    f.writelines(lines)
+
+for i in range(0, nstars):
+    data = ascii.read(starnames[i])
+    ISOT = data['YYYY-MM-DDTHH:MM:SS']
+    mag = data['mag']
+    mag_err = data['mag_err']
+    zpt = data['zpt']
+    zpt_err = data['zpt_err']
+    t = Time(ISOT, format = 'isot')
+    mjd = t.mjd
+    print(f'{starnames[i]}')
+    # reset mag error to be sum of errors in quadrature
+    mag_err = np.sqrt(mag_err**2 + zpt_err**2)
+    
+    av_mag = np.mean(mag)
+    m0_initial = av_mag
+    ''' need below to work to loop through list'''
+    A0_initial = initial_values['A0'][i]  #not sure what to guess
+    T0_initial = initial_values['T0'][i]
+
+    phi_initial = initial_values['phi'][i]
+    '''
+    print(A0_initial)
+    print(T0_initial)
+    print(phi_initial)
+    '''
+    A1_initial = A0_initial
+    phi1_initial = phi_initial
+    A2_initial = 0.5
+    phi2_initial = 0.0
+
+    # bounds single harmonic
+    T0low    = T0_initial / 1.5
+    T0high   = T0_initial * 1.5
+    m0low    = m0_initial - 1.  # bound m0 to +/-1 mag
+    m0high   = m0_initial + 1.
+    A0low    = 0.
+    A0high   = 100
+    philow  = 0.0
+    phihigh = 2*np.pi #1.2 * T0_initial
+
+    # two_harmonics
+    A1low    = 0.
+    A1high   = 100
+    phi1low  = 0.0
+    phi1high = 2*np.pi
+    A2low    = 0.
+    A2high   = 100
+    phi2low  = 0.0
+    phi2high = 2*np.pi
+    
+    #initial_guess_sing = [A0_initial, T0_initial, m0_initial, phi_initial]
+    #bounds_sing = ([A0low, T0low, m0low, philow], [A0high, T0high, m0high, phihigh])
+    #print(bounds)
+    #print(initial_values)
+    '''
+    if starnames[i] == 'dl_cas':
+        #print(initial_guess_sing)
+        #mag_err[:]=0.1
+        print(mag,mag_err)
+        print('dl_cas')
+        plt.scatter(mjd,mag)
+        full_mjd = np.arange(np.min(mjd), np.max(mjd), 0.1)
+        y = single_harm(full_mjd,A0_initial,T0_initial,m0_initial,phi_initial)
+
+        plt.plot(full_mjd,y)
+        plt.show()
+    '''
+    #popt, pcov = curve_fit(single_harm, mjd, mag, sigma = mag_err, absolute_sigma = True, bounds = bounds_sing, p0 = initial_guess_sing)
+    #popt, pcov = curve_fit(single_harm, mjd, mag, sigma = mag_err, absolute_sigma = True, p0 = initial_guess_sing)
+
+    initial_guess_two = [A1_initial, T0_initial, m0_initial, phi1_initial, A2_initial, phi2_initial]
+    bounds_two = ([A1low, T0low, m0low, phi1low, A2low, phi2low], [A1high, T0high, m0high, phi1high, A2high, phi2high])
+
+    popt_two, pcov_two = curve_fit(two_harm, mjd, mag, sigma = mag_err, absolute_sigma = True,bounds=bounds_two, p0 = initial_guess_two)
+    #popt_two, pcov_two = curve_fit(two_harm, mjd, mag, sigma = mag_err, absolute_sigma = True, bounds = bounds_two, p0 = initial_guess_two)
+
+    #print(f'{starnames[i]} Single Harmonic A0,T0,m0,phi0 = {popt}')
+    print(f'{starnames[i]} Two Harmonics A1,T0,m0,phi1,A2,phi2 = {popt_two}')
+
+    lines = [f'{starnames[i]} Two Harmonics A1,T0,m0,phi1,A2,phi2 = {popt_two}\n']
+    with open('optimised_params_two_harms.txt', 'a') as f:
+        f.write('\n'.join(lines))
+        
+    plt.figure()
+    plt.errorbar(mjd,mag,yerr=mag_err,fmt='o', label = 'Data')
+    
+    full_mjd = np.arange(np.min(mjd), np.max(mjd), 0.1)
+    #single = single_harm(full_mjd, popt[0],popt[1],popt[2],popt[3])
+
+    second_harmonic = two_harm(full_mjd, popt_two[0],popt_two[1],popt_two[2],popt_two[3],popt_two[4],popt_two[5])
+    
+    #plt.plot(full_mjd, single, label = 'Single Harmonics')
+    plt.plot(full_mjd, second_harmonic, label = 'Two Harmonics')
+    plt.legend()
+    plt.title(f'{starnames[i]}')
+    plt.savefig(f'{starnames[i]}_with_two_harm.png',bbox_inches = 'tight', dpi=800)
+    plt.show()
